@@ -21,6 +21,14 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ── Security Layer ───────────────────────────────────────────
+audit_pwd = st.secrets.get("audit_password")
+user_pwd = st.text_input("Audit Credentials", type="password")
+
+if user_pwd != audit_pwd or not user_pwd:
+    st.warning("Please enter the audit credentials to view the instructional data.")
+    st.stop()
+
 # ── Custom CSS ───────────────────────────────────────────────
 st.markdown("""
 <style>
