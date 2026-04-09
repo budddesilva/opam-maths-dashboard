@@ -23,15 +23,40 @@ st.set_page_config(
 
 # ── Security Layer ───────────────────────────────────────────
 audit_pwd = st.secrets.get("audit_password")
-user_pwd = st.text_input("Audit Credentials", type="password")
 
-if user_pwd != audit_pwd or not user_pwd:
-    st.warning("Please enter the audit credentials to view the instructional data.")
-    st.stop()
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    user_pwd = st.text_input("Audit Credentials", type="password")
+    if user_pwd == audit_pwd and user_pwd:
+        st.session_state.authenticated = True
+        st.rerun()
+    else:
+        if user_pwd:
+            st.error("Incorrect credentials.")
+        else:
+            st.warning("Please enter the audit credentials to view the instructional data.")
+        st.stop()
 
 # ── Custom CSS ───────────────────────────────────────────────
 st.markdown("""
 <style>
+    :root {
+        --bg-grad: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+        --card-bg: rgba(255,255,255,0.03);
+        --card-border: rgba(255,255,255,0.06);
+        --card-shadow: 0 12px 40px rgba(0,0,0,0.3);
+        --text-main: #ffffff;
+        --text-title: #e2e8f0;
+        --text-sub: #8892b0;
+        --text-muted: #64748b;
+        --text-tab: #a0aec0;
+        --tab-active-bg: rgba(255,255,255,0.03);
+        --sidebar-grad: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 100%);
+        --divider-grad: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+    }
+    
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
     /* ── Global ─────────────────────────────────── */
@@ -40,7 +65,7 @@ st.markdown("""
     }
 
     .stApp {
-        background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+        background: var(--bg-grad);
     }
 
     /* ── Header ─────────────────────────────────── */
@@ -60,7 +85,7 @@ st.markdown("""
     }
 
     .dashboard-header p {
-        color: #8892b0;
+        color: var(--text-sub);
         font-size: 0.95rem;
         font-weight: 400;
         margin: 0;
@@ -68,8 +93,8 @@ st.markdown("""
 
     /* ── KPI Cards ──────────────────────────────── */
     .kpi-card {
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(255,255,255,0.06);
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
         border-radius: 16px;
         padding: 1.5rem 1.25rem;
         text-align: center;
@@ -81,7 +106,7 @@ st.markdown("""
 
     .kpi-card:hover {
         transform: translateY(-4px);
-        box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+        box-shadow: var(--card-shadow);
     }
 
     .kpi-card::before {
@@ -113,21 +138,21 @@ st.markdown("""
     .kpi-value {
         font-size: 2.8rem;
         font-weight: 900;
-        color: #ffffff;
+        color: var(--text-main);
         line-height: 1;
         margin-bottom: 0.35rem;
     }
 
     .kpi-sub {
         font-size: 0.75rem;
-        color: #64748b;
+        color: var(--text-muted);
         font-weight: 400;
     }
 
     /* ── Chart section ──────────────────────────── */
     .chart-container {
-        background: rgba(255,255,255,0.02);
-        border: 1px solid rgba(255,255,255,0.06);
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
         border-radius: 16px;
         padding: 1.5rem;
         margin-top: 1rem;
@@ -136,24 +161,24 @@ st.markdown("""
     .chart-title {
         font-size: 1.15rem;
         font-weight: 700;
-        color: #e2e8f0;
+        color: var(--text-title);
         margin-bottom: 0.25rem;
     }
 
     .chart-subtitle {
         font-size: 0.8rem;
-        color: #64748b;
+        color: var(--text-muted);
         margin-bottom: 1rem;
     }
 
     /* ── Sidebar ────────────────────────────────── */
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 100%);
-        border-right: 1px solid rgba(255,255,255,0.06);
+        background: var(--sidebar-grad);
+        border-right: 1px solid var(--card-border);
     }
 
     section[data-testid="stSidebar"] .stSelectbox label {
-        color: #a0aec0;
+        color: var(--text-tab);
         font-weight: 600;
         font-size: 0.8rem;
         text-transform: uppercase;
@@ -167,10 +192,7 @@ st.markdown("""
         margin-bottom: 0.5rem;
     }
 
-    /* Prevent sidebar from being collapsed */
-    [data-testid="collapsedControl"] {
-        display: none !important;
-    }
+    /* Let sidebar be collapsed/expanded natively */
 
     /* ── Tabs Full Width ────────────────────────── */
     [data-testid="stTabs"] button[data-baseweb="tab"] {
@@ -179,12 +201,12 @@ st.markdown("""
         font-size: 1.05rem;
         padding-top: 1rem;
         padding-bottom: 1rem;
-        color: #a0aec0;
+        color: var(--text-tab);
     }
 
     [data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
-        color: #e2e8f0;
-        background: rgba(255,255,255,0.03);
+        color: var(--text-title);
+        background: var(--tab-active-bg);
     }
 
     /* ── Table styling ──────────────────────────── */
@@ -197,7 +219,7 @@ st.markdown("""
     .section-divider {
         border: none;
         height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+        background: var(--divider-grad);
         margin: 1.5rem 0;
     }
 
@@ -346,8 +368,8 @@ def load_data():
     
     tracking = pd.DataFrame(raw_tracking[1:], columns=tracking_headers)
 
-    # ── Read Term 1
-    ws_term1 = sh.worksheet("Term 1")
+    # ── Read Planning Master Sheet
+    ws_term1 = sh.worksheet("Planning")
     raw_term1 = ws_term1.get_all_values()
     if not (raw_term1 and len(raw_term1) > 0):
         return pd.DataFrame()
@@ -413,8 +435,8 @@ def load_data():
         if isinstance(w_series, pd.DataFrame): w_series = w_series.iloc[:, 0]
         term1 = term1[w_series.map(str).str.strip() != ""]
 
-    # We use "Week", "Date (DD:MM)", "Type of task" as join keys for accuracy
-    term1_subset_cols = ["Week", "Date (DD:MM)", "Type of task", "Resource", "Resource_Link"]
+    # We use "Term" (if exists), "Week", "Date (DD:MM)", "Sub-Category" as join keys for accuracy
+    term1_subset_cols = ["Term", "Week", "Date (DD:MM)", "Sub-Category", "Resource", "Resource_Link", "Disruption Reason"]
     
     # Filter to existing columns
     term1_subset_cols = [c for c in term1_subset_cols if c in term1.columns]
@@ -422,17 +444,32 @@ def load_data():
     term1_subset = term1[term1_subset_cols].copy()
     
     # Deduplicate term1 to avoid row explosion during merge
-    if all(c in term1_subset.columns for c in ["Week", "Date (DD:MM)", "Type of task"]):
-        term1_subset = term1_subset.drop_duplicates(subset=["Week", "Date (DD:MM)", "Type of task"])
+    join_keys = ["Week", "Date (DD:MM)", "Sub-Category"]
+    if "Term" in term1.columns and "Term" in tracking.columns:
+        join_keys.insert(0, "Term")
+
+    if all(c in term1_subset.columns for c in join_keys):
+        term1_subset = term1_subset.drop_duplicates(subset=join_keys)
 
     df = tracking.merge(
         term1_subset,
-        on=["Week", "Date (DD:MM)", "Type of task"],
+        on=join_keys,
         how="left",
     )
 
     # Nuclear option: Force column uniqueness after merge
     df = df.loc[:, ~df.columns.duplicated()]
+    
+    # Clean up potentially duplicated columns due to merge
+    if "Disruption Reason_x" in df.columns and "Disruption Reason_y" in df.columns:
+        df["Disruption Reason"] = df["Disruption Reason_x"].astype(str).replace(["nan", "None", ""], np.nan).fillna(df["Disruption Reason_y"].astype(str).replace(["nan", "None", ""], np.nan)).fillna("")
+        df = df.drop(columns=["Disruption Reason_x", "Disruption Reason_y"])
+    elif "Disruption Reason_x" in df.columns:
+        df["Disruption Reason"] = df["Disruption Reason_x"].fillna("")
+        df = df.drop(columns=["Disruption Reason_x"])
+    elif "Disruption Reason_y" in df.columns:
+        df["Disruption Reason"] = df["Disruption Reason_y"].fillna("")
+        df = df.drop(columns=["Disruption Reason_y"])
     
     # Final safety: Reset index to ensure it's unique
     df = df.reset_index(drop=True)
@@ -451,7 +488,7 @@ def load_data():
         df["Lesson Link"] = ""
 
     # Clean string columns
-    str_cols = ["Type of task", "Lesson Link", "Description", "Explicit or Inquiry"]
+    str_cols = ["Term", "Sub-Category", "Lesson Link", "Description", "Explicit or Inquiry"]
     if "Explicit or Inquiry" in df.columns:
         str_cols.append("Explicit or Inquiry")
 
@@ -467,17 +504,39 @@ def load_data():
     if "Period Taught" in df.columns:
         df["Period Taught"] = pd.to_numeric(df["Period Taught"], errors="coerce").fillna(0).astype(int)
 
+    # Calculate Attendance Weight Base
+    if "Students Present" in df.columns:
+        df["Students Present"] = pd.to_numeric(df["Students Present"], errors="coerce").fillna(23).astype(float)
+    else:
+        df["Students Present"] = 23.0
+
+    if "Disruption Reason" not in df.columns:
+        df["Disruption Reason"] = ""
+
+    def process_disruption(row):
+        if row["Students Present"] < 23:
+            reason = str(row.get("Disruption Reason", "")).strip()
+            # Handle potential float parsing or empty fields
+            if not reason or reason.lower() in ["nan", "none", "<na>"]:
+                return "Reason not specified."
+            return reason
+        return ""
+
+    df["Disruption Reason"] = df.apply(process_disruption, axis=1)
+
+    df["Attendance Weight"] = (df["Students Present"] / 23.0).clip(upper=1.0)
+
     return df
 
 
 def categorize(row):
     """
     Assign a category to each row into three Audit Tracks:
-      1. Instructional Leakage: Type of task is "no maths" or Description includes "pat".
-      2. Curriculum Overhead: Type of task is "maths assessment".
+      1. Instructional Leakage: Sub-Category is "no maths" or Description includes "pat".
+      2. Curriculum Overhead: Sub-Category is "maths assessment".
       3. Learning Core: Explicit or Inquiry is "explicit" or "inquiry".
     """
-    task_type = str(row.get("Type of task", "")).strip().lower()
+    task_type = str(row.get("Sub-Category", "")).strip().lower()
     desc = str(row.get("Description", "")).strip().lower()
     explicit_inquiry = str(row.get("Explicit or Inquiry", "")).strip().lower()
 
@@ -485,8 +544,9 @@ def categorize(row):
     if "pat mathematics" in desc:
         return "Curriculum Overhead"
 
-    # Priority 1: Instructional Leakage (No maths or contains PAT)
-    if task_type == "no maths" or "pat" in desc:
+    import re
+    # Priority 1: Instructional Leakage (No maths or exact word PAT)
+    if task_type == "no maths" or re.search(r'\bpat\b', desc):
         return "Instructional Leakage"
 
     # Priority 2: Curriculum Overhead
@@ -505,10 +565,20 @@ def categorize(row):
 try:
     df = load_data()
     df["Category"] = df.apply(categorize, axis=1)
+
+    def calc_leakage(row):
+        # Full leakage if categorised as Instructional Leakage or 0 students
+        if row["Category"] == "Instructional Leakage" or row["Students Present"] == 0:
+            return 1.0
+        return max(0.0, 1.0 - row["Attendance Weight"])
+
+    df["Leakage Value"] = df.apply(calc_leakage, axis=1)
+
     data_loaded = True
 except Exception as e:
     data_loaded = False
     error_msg = str(e)
+
 
 # ── Session State ────────────────────────────────────────────
 if "selected_week" not in st.session_state:
@@ -545,16 +615,53 @@ if not data_loaded:
     st.stop()
 
 
-# ── KPI Calculations ────────────────────────────────────────
-total_periods = len(df)
-learning_core_count = len(df[df["Category"] == "Learning Core"])
-overhead_count = len(df[df["Category"] == "Curriculum Overhead"])
-leakage_count = len(df[df["Category"] == "Instructional Leakage"])
+# ── Methodology & Global Filter ──────────────────────────────
+methodology_text = "Methodology: Weighted Student-Periods. Each session equals 23 student-units of potential learning.\n\nPartial Leakage (decimal) tracks the proportional loss from student withdrawals; for example, 16 absent students equals 0.7 Leakage, while the remaining 7 students contribute 0.3 to the Pedagogical Pulse."
+st.info(methodology_text)
 
-actual_periods_taught = learning_core_count + overhead_count
+current_term_label = "this term"
+if "Term" in df.columns:
+    terms = sorted([str(t).strip() for t in df["Term"].dropna().unique() if str(t).strip() != "" and str(t).strip().lower() != "nan"])
+    if terms:
+        st.markdown("<hr class='section-divider' style='margin: 1rem 0;'>", unsafe_allow_html=True)
+        scope_l, scope_r = st.columns([1, 2.5], gap="large")
+        
+        with scope_l:
+            st.markdown('''
+            <div style="padding-top: 0.5rem;">
+                <div style="font-size: 1.2rem; font-weight: 800; color: #f093fb; display: flex; align-items: center; gap: 0.3rem;">
+                    📅 Global Scope
+                </div>
+                <div style="font-size: 0.8rem; color: #a0aec0; margin-top: 0.2rem;">
+                    Recalculates all matrices & metrics.
+                </div>
+            </div>
+            ''', unsafe_allow_html=True)
+            
+        with scope_r:
+            selected_global_term = st.selectbox("**🔻 Select Term**", options=["All Year"] + terms, index=0)
+            
+        st.markdown("<hr class='section-divider' style='margin: 1rem 0;'>", unsafe_allow_html=True)
+
+        if selected_global_term != "All Year":
+            df = df[df["Term"] == selected_global_term]
+            current_term_label = f"in {selected_global_term}"
+        else:
+            current_term_label = "this year"
+
+
+# ── KPI Calculations ────────────────────────────────────────
+total_periods_raw = len(df)
+
+learning_core_weight = df[df["Category"] == "Learning Core"]["Attendance Weight"].sum()
+overhead_weight = df[df["Category"] == "Curriculum Overhead"]["Attendance Weight"].sum()
+leakage_weight = df["Leakage Value"].sum()
+
+actual_periods_taught = learning_core_weight + overhead_weight
 
 # Percentages
-leakage_pct = (leakage_count / total_periods * 100) if total_periods > 0 else 0
+total_weight = learning_core_weight + overhead_weight + leakage_weight
+leakage_pct = (leakage_weight / total_weight * 100) if total_weight > 0 else 0
 
 # ── Setup Tabs ────────────────────────────────────────────────
 tab1, tab2, tab3 = st.tabs(["📊 Operational Metrics", "💡 Pedagogical Pulse", "📁 Instructional Assets"])
@@ -571,17 +678,17 @@ with tab1:
         with kpi_r1_1:
             st.markdown(f'''
             <div class="kpi-card green">
-                <div class="kpi-label">Total Scheduled Periods</div>
-                <div class="kpi-value">{total_periods}</div>
-                <div class="kpi-sub">All planned math periods this term</div>
+                <div class="kpi-label">Total Student-Periods</div>
+                <div class="kpi-value">{total_weight:.1f}</div>
+                <div class="kpi-sub">Scheduled capacity {current_term_label}</div>
             </div>
             ''', unsafe_allow_html=True)
         
         with kpi_r1_2:
             st.markdown(f'''
             <div class="kpi-card yellow">
-                <div class="kpi-label">Actual Periods Taught</div>
-                <div class="kpi-value">{actual_periods_taught}</div>
+                <div class="kpi-label">Actual Student-Periods Taught</div>
+                <div class="kpi-value">{actual_periods_taught:.1f}</div>
                 <div class="kpi-sub">Core + Overhead (excluding leakage)</div>
             </div>
             ''', unsafe_allow_html=True)
@@ -592,8 +699,8 @@ with tab1:
             st.markdown(f'''
             <div class="kpi-card red">
                 <div class="kpi-label">Instructional Leakage</div>
-                <div class="kpi-value">{leakage_count}</div>
-                <div class="kpi-sub">{leakage_pct:.0f}% lost due to disruptions</div>
+                <div class="kpi-value">{leakage_weight:.1f}</div>
+                <div class="kpi-sub">{leakage_pct:.1f}% time lost</div>
             </div>
             ''', unsafe_allow_html=True)
 
@@ -601,14 +708,14 @@ with tab1:
             st.markdown(f'''
             <div class="kpi-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,165,0,0.3); border-radius: 16px; padding: 1.5rem 1.25rem; text-align: center;">
                 <div class="kpi-label" style="color: #FFA500;">Maths Assessment</div>
-                <div class="kpi-value" style="color: #ffffff;">{overhead_count}</div>
+                <div class="kpi-value" style="color: #ffffff;">{overhead_weight:.1f}</div>
                 <div class="kpi-sub">Periods scheduled as assessments</div>
             </div>
             ''', unsafe_allow_html=True)
 
     with right_col:
         donut_labels = ["Learning Core", "Curriculum Overhead", "Instructional Leakage"]
-        donut_values = [learning_core_count, overhead_count, leakage_count]
+        donut_values = [learning_core_weight, overhead_weight, leakage_weight]
         donut_colors = ["#00d68f", "#ffd32a", "#ff4757"]
 
         donut_fig = go.Figure(data=[go.Pie(
@@ -620,7 +727,7 @@ with tab1:
             texttemplate="<b>%{label}</b><br>%{percent}",
             textposition="outside",
             textfont=dict(size=11, family="Inter, sans-serif"),
-            hovertemplate="<b>%{label}</b><br>%{value} of " + str(total_periods) + " periods<br>%{percent}<extra></extra>",
+            hovertemplate="<b>%{label}</b><br>%{value:.1f} of " + f"{total_weight:.1f}" + " periods<br>%{percent}<extra></extra>",
             pull=[0.02, 0.02, 0.02],
             direction="clockwise",
             sort=False,
@@ -635,8 +742,8 @@ with tab1:
             height=300,
             annotations=[
                 dict(
-                    text=f"<b style='font-size:1.8rem; color:#e2e8f0;'>{total_periods}</b>"
-                         f"<br><span style='font-size:0.75rem; color:#94a3b8;'>periods</span>",
+                    text=f"<b style='font-size:1.8rem; color:#e2e8f0;'>{total_weight:.1f}</b>"
+                         f"<br><span style='font-size:0.75rem; color:#94a3b8;'>student<br>periods</span>",
                     x=0.5, y=0.5,
                     font=dict(size=14, color="#e2e8f0", family="Inter, sans-serif"),
                     showarrow=False,
@@ -654,7 +761,10 @@ with tab1:
     ''', unsafe_allow_html=True)
 
     week_order = sorted(df["Week"].unique(), key=lambda w: int(str(w).replace("W", "")) if str(w).startswith("W") else 999)
-    chart_df = df.groupby(["Week", "Category"]).size().reset_index(name="Count")
+    def get_category_weight(row):
+        return row["Leakage Value"] if row["Category"] == "Instructional Leakage" else row["Attendance Weight"]
+    df["Plot Weight"] = df.apply(get_category_weight, axis=1)
+    chart_df = df.groupby(["Week", "Category"])["Plot Weight"].sum().reset_index(name="Count")
     category_order = ["Learning Core", "Curriculum Overhead", "Instructional Leakage"]
     color_map = {"Learning Core": "#00d68f", "Curriculum Overhead": "#ffd32a", "Instructional Leakage": "#ff4757"}
     
@@ -680,19 +790,35 @@ with tab1:
     # ── Operational Insights Table
     st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
     st.markdown('<div class="chart-title">🔎 Operational Deep Dive</div>', unsafe_allow_html=True)
-    st.markdown('<div class="chart-subtitle">Explore Curriculum Overhead and Instructional Leakage periods.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="chart-subtitle">Explore Curriculum Overhead, Instructional Leakage, and Partial Leakage periods.</div>', unsafe_allow_html=True)
 
-    op_df = df[df["Category"].isin(["Curriculum Overhead", "Instructional Leakage"])].copy()
+    op_table_df = df.copy()
+    is_partial = (op_table_df["Students Present"] < 23) & (op_table_df["Students Present"] > 0) & (op_table_df["Category"] != "Instructional Leakage")
+    op_table_df.loc[is_partial, "Category"] = "Partial Leakage"
+
+    op_df = op_table_df.copy()
     
     op_left, op_right = st.columns([1, 3], gap="large")
     
     with op_left:
         selected_op_week = st.selectbox("Filter Week", options=["All Weeks"] + week_order, index=0, key="op_week")
-        selected_op_cat = st.selectbox("Filter Category", options=["All Categories", "Curriculum Overhead", "Instructional Leakage"], index=0, key="op_cat")
+        
+        cat_options = [
+            "Instructional & Partial Leakage",
+            "All Categories",
+            "Learning Core",
+            "Curriculum Overhead",
+            "Instructional Leakage",
+            "Partial Leakage"
+        ]
+        selected_op_cat = st.selectbox("Filter Category", options=cat_options, index=0, key="op_cat")
         
         if selected_op_week != "All Weeks":
             op_df = op_df[op_df["Week"] == selected_op_week]
-        if selected_op_cat != "All Categories":
+            
+        if selected_op_cat == "Instructional & Partial Leakage":
+            op_df = op_df[op_df["Category"].isin(["Instructional Leakage", "Partial Leakage"])]
+        elif selected_op_cat != "All Categories":
             op_df = op_df[op_df["Category"] == selected_op_cat]
             
         st.markdown(f'''
@@ -703,9 +829,7 @@ with tab1:
         ''', unsafe_allow_html=True)
 
     with op_right:
-        cols_to_show_op = ["Week", "Date (DD:MM)", "Type of task", "Description", "Category"]
-        if "Lesson Link" in op_df.columns and op_df["Lesson Link"].astype(str).str.contains("http").any():
-            cols_to_show_op.append("Lesson Link")
+        cols_to_show_op = ["Week", "Date (DD:MM)", "Category", "Sub-Category", "Description"]
             
         display_op_df = op_df[[c for c in cols_to_show_op if c in op_df.columns]].copy()
         display_op_df = display_op_df.rename(columns={"Date (DD:MM)": "Date"})
@@ -713,35 +837,48 @@ with tab1:
         display_op_df = display_op_df.reset_index(drop=True)
 
         def highlight_op_category(val):
-            colors = {"Instructional Leakage": "color: #ff4757; font-weight: 600;", "Curriculum Overhead": "color: #ffd32a; font-weight: 600;"}
+            colors = {
+                "Learning Core": "color: #00d68f; font-weight: 600;",
+                "Instructional Leakage": "color: #ff4757; font-weight: 600;", 
+                "Curriculum Overhead": "color: #ffd32a; font-weight: 600;",
+                "Partial Leakage": "color: #ff7f50; font-weight: 600;"
+            }
             return colors.get(val, "")
 
         if len(display_op_df) > 0:
-            column_config_op = {
-                "Lesson Link": st.column_config.LinkColumn("Lesson Link", help="Click to open lesson resource", validate=r"^http", display_text="Open Link 🔗")
-            }
-            st.dataframe(display_op_df.style.map(highlight_op_category, subset=["Category"]), use_container_width=True, height=min(450, 35 * len(display_op_df) + 38), hide_index=True, column_config=column_config_op)
+            st.dataframe(display_op_df.style.map(highlight_op_category, subset=["Category"]), use_container_width=True, height=min(450, 35 * len(display_op_df) + 38), hide_index=True)
         else:
             st.info("No periods match the selected filters.")
+
+    # ── Leakage Analysis (Disruption Reasons)
+    st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
+    st.markdown('<div class="chart-title">📉 Partial Leakage Drivers</div>', unsafe_allow_html=True)
+    st.markdown('<div class="chart-subtitle">Most frequent disruption reasons when attendance is below 23 students.</div>', unsafe_allow_html=True)
+
+    disruption_df = df[df["Disruption Reason"] != ""]
+    if len(disruption_df) > 0:
+        reason_counts = disruption_df["Disruption Reason"].value_counts().reset_index()
+        reason_counts.columns = ["Disruption Reason", "Frequency"]
+        st.dataframe(reason_counts, use_container_width=True, hide_index=True)
+    else:
+        st.info("No partial leakage events recorded.")
 
 with tab2:
     st.markdown('<div class="chart-title" style="margin-bottom:1rem;">Pedagogical Pulse</div>', unsafe_allow_html=True)
     
-    # Needs sidebar filter for week
     week_options = ["All Weeks"] + week_order
-    st.sidebar.markdown('<div class="sidebar-title">Pedagogical Filter</div>', unsafe_allow_html=True)
-    selected_pulse_week = st.sidebar.selectbox("Select Week", options=week_options, index=0, key="pulse_week")
+    selected_pulse_week = st.selectbox("Filter Week", options=week_options, index=0, key="pulse_week")
     
     pulse_df = df[df["Category"] == "Learning Core"].copy()
     if selected_pulse_week != "All Weeks":
         pulse_df = pulse_df[pulse_df["Week"] == selected_pulse_week]
         
-    explicit_count = len(pulse_df[pulse_df["Explicit or Inquiry"].str.lower() == "explicit"])
-    inquiry_count = len(pulse_df[pulse_df["Explicit or Inquiry"].str.lower() == "inquiry"])
-    total_pulse = explicit_count + inquiry_count
+    explicit_weight = pulse_df[pulse_df["Explicit or Inquiry"].str.lower() == "explicit"]["Attendance Weight"].sum()
+    inquiry_weight = pulse_df[pulse_df["Explicit or Inquiry"].str.lower() == "inquiry"]["Attendance Weight"].sum()
+    total_pulse = explicit_weight + inquiry_weight
     
-    inquiry_pct = (inquiry_count / total_pulse * 100) if total_pulse > 0 else 0
-    explicit_pct = (explicit_count / total_pulse * 100) if total_pulse > 0 else 0
+    inquiry_pct = (inquiry_weight / total_pulse * 100) if total_pulse > 0 else 0
+    explicit_pct = (explicit_weight / total_pulse * 100) if total_pulse > 0 else 0
     
     # Pulse Metric KPI
     pulse_kpi1, pulse_kpi2 = st.columns(2, gap="medium")
@@ -750,7 +887,7 @@ with tab2:
         <div class="kpi-card green" style="background: linear-gradient(135deg, rgba(0,214,143,0.1), rgba(0,0,0,0));">
             <div class="kpi-label">Pedagogical Pulse (Inquiry-Led)</div>
             <div class="kpi-value">{inquiry_pct:.0f}%</div>
-            <div class="kpi-sub">{inquiry_count} Inquiry periods (Learning Core)</div>
+            <div class="kpi-sub">{inquiry_weight:.1f} Inquiry student-periods</div>
         </div>
         ''', unsafe_allow_html=True)
         
@@ -759,7 +896,7 @@ with tab2:
         <div class="kpi-card yellow" style="background: linear-gradient(135deg, rgba(255,211,42,0.1), rgba(0,0,0,0));">
             <div class="kpi-label">Explicit Instruction</div>
             <div class="kpi-value">{explicit_pct:.0f}%</div>
-            <div class="kpi-sub">{explicit_count} Explicit periods (Learning Core)</div>
+            <div class="kpi-sub">{explicit_weight:.1f} Explicit student-periods</div>
         </div>
         ''', unsafe_allow_html=True)
         
@@ -770,8 +907,8 @@ with tab2:
     ''', unsafe_allow_html=True)
 
     pulse_fig = go.Figure(data=[
-        go.Bar(name='Explicit', x=['Pedagogy'], y=[explicit_count], marker_color='#94a3b8'),
-        go.Bar(name='Inquiry', x=['Pedagogy'], y=[inquiry_count], marker_color='#00d68f')
+        go.Bar(name='Explicit', x=['Pedagogy'], y=[explicit_weight], marker_color='#94a3b8'),
+        go.Bar(name='Inquiry', x=['Pedagogy'], y=[inquiry_weight], marker_color='#00d68f')
     ])
     pulse_fig.update_layout(
         barmode='group',
@@ -795,11 +932,11 @@ with tab3:
     
     with dive_left:
         selected_asset_week = st.selectbox("Filter by Week", options=["All Weeks"] + week_order, index=0, key="asset_week")
-        selected_asset_cat = st.selectbox("Filter by Category", options=["All Categories", "Learning Core", "Curriculum Overhead"], index=0, key="asset_cat")
+        selected_asset_cat = st.selectbox("Filter by Category", options=["Learning Core & Curriculum Overhead", "Learning Core", "Curriculum Overhead"], index=0, key="asset_cat")
         
         if selected_asset_week != "All Weeks":
             asset_df = asset_df[asset_df["Week"] == selected_asset_week]
-        if selected_asset_cat != "All Categories":
+        if selected_asset_cat != "Learning Core & Curriculum Overhead":
             asset_df = asset_df[asset_df["Category"] == selected_asset_cat]
             
         st.markdown(f'''
@@ -811,24 +948,46 @@ with tab3:
         ''', unsafe_allow_html=True)
 
     with dive_right:
-        cols_to_show = ["Week", "Date (DD:MM)", "Type of task", "Explicit or Inquiry", "Description", "Category"]
+        cols_to_show = ["Week", "Date (DD:MM)", "Category", "Sub-Category", "Explicit or Inquiry", "Description"]
         if "Lesson Link" in asset_df.columns and asset_df["Lesson Link"].astype(str).str.contains("http").any():
             cols_to_show.append("Lesson Link")
+        cols_to_show.append("Disruption Reason")
             
         display_df = asset_df[[c for c in cols_to_show if c in asset_df.columns]].copy()
-        display_df = display_df.rename(columns={"Date (DD:MM)": "Date", "Explicit or Inquiry": "Pedagogy"})
+            
+        display_df = display_df.rename(columns={"Date (DD:MM)": "Date", "Explicit or Inquiry": "Pedagogy", "Disruption Reason": "Audit Note"})
         display_df = display_df.loc[:, ~display_df.columns.duplicated()]
         display_df = display_df.reset_index(drop=True)
 
-        def highlight_category(val):
-            colors = {"Learning Core": "color: #00d68f; font-weight: 600;", "Curriculum Overhead": "color: #ffd32a; font-weight: 600;"}
-            return colors.get(val, "")
+        def highlight_row(row):
+            styles = [""] * len(row)
+            if "Category" in row.index:
+                cat_idx = row.index.get_loc("Category")
+                cat_val = row["Category"]
+                if cat_val == "Learning Core":
+                    styles[cat_idx] += "color: #00d68f; font-weight: 600;"
+                elif cat_val == "Curriculum Overhead":
+                    styles[cat_idx] += "color: #ffd32a; font-weight: 600;"
+            
+            has_disruption = False
+            if "Audit Note" in row.index and str(row["Audit Note"]).strip():
+                has_disruption = True
+
+            for i in range(len(styles)):
+                if has_disruption:
+                    styles[i] += "background-color: rgba(255, 71, 87, 0.15); "
+                elif "Attendance" in row.index:
+                    att_val = str(row["Attendance"])
+                    if att_val.split(" / ")[0] != "23":
+                        styles[i] += "background-color: rgba(255, 211, 42, 0.1);"
+
+            return styles
 
         if len(display_df) > 0:
             column_config = {
                 "Lesson Link": st.column_config.LinkColumn("Lesson Link", help="Click to open lesson resource", validate=r"^http", display_text="Open Link 🔗")
             }
-            st.dataframe(display_df.style.map(highlight_category, subset=["Category"]), use_container_width=True, height=min(450, 35 * len(display_df) + 38), hide_index=True, column_config=column_config)
+            st.dataframe(display_df.style.apply(highlight_row, axis=1), use_container_width=True, height=min(450, 35 * len(display_df) + 38), hide_index=True, column_config=column_config)
         else:
             st.info("No periods match the selected filters.")
 
