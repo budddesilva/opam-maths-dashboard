@@ -532,33 +532,33 @@ def load_data():
 def categorize(row):
     """
     Assign a category to each row into three Audit Tracks:
-      1. Instructional Leakage: Sub-Category is "no maths" or Description includes "pat".
-      2. Curriculum Overhead: Sub-Category is "maths assessment".
-      3. Learning Core: Explicit or Inquiry is "explicit" or "inquiry".
+      1. Periods Lost: Sub-Category is "no maths" or Description includes "pat".
+      2. Periods with Maths Assessment: Sub-Category is "maths assessment".
+      3. Periods Taught: Explicit or Inquiry is "explicit" or "inquiry".
     """
     task_type = str(row.get("Sub-Category", "")).strip().lower()
     desc = str(row.get("Description", "")).strip().lower()
     explicit_inquiry = str(row.get("Explicit or Inquiry", "")).strip().lower()
 
-    # Special Exception: PAT Mathematics is Curriculum Overhead
+    # Special Exception: PAT Mathematics is Periods with Maths Assessment
     if "pat mathematics" in desc:
-        return "Curriculum Overhead"
+        return "Periods with Maths Assessment"
 
     import re
-    # Priority 1: Instructional Leakage (No maths or exact word PAT)
+    # Priority 1: Periods Lost (No maths or exact word PAT)
     if task_type == "no maths" or re.search(r'\bpat\b', desc):
-        return "Instructional Leakage"
+        return "Periods Lost"
 
-    # Priority 2: Curriculum Overhead
+    # Priority 2: Periods with Maths Assessment
     if task_type == "maths assessment":
-        return "Curriculum Overhead"
+        return "Periods with Maths Assessment"
 
-    # Priority 3: Learning Core
+    # Priority 3: Periods Taught
     if explicit_inquiry in ("explicit", "inquiry"):
-        return "Learning Core"
+        return "Periods Taught"
 
     # Default catch-all
-    return "Instructional Leakage"
+    return "Periods Lost"
 
 
 # ── Load & Process ───────────────────────────────────────────
@@ -567,8 +567,8 @@ try:
     df["Category"] = df.apply(categorize, axis=1)
 
     def calc_leakage(row):
-        # Full leakage if categorised as Instructional Leakage or 0 students
-        if row["Category"] == "Instructional Leakage" or row["Students Present"] == 0:
+        # Full leakage if categorised as Periods Lost or 0 students
+        if row["Category"] == "Periods Lost" or row["Students Present"] == 0:
             return 1.0
         return max(0.0, 1.0 - row["Attendance Weight"])
 
@@ -616,7 +616,7 @@ if not data_loaded:
 
 
 # ── Methodology & Global Filter ──────────────────────────────
-methodology_text = "Methodology: Weighted Student-Periods. Each session equals 23 student-units of potential learning.\n\nPartial Leakage (decimal) tracks the proportional loss from student withdrawals; for example, 16 absent students equals 0.7 Leakage, while the remaining 7 students contribute 0.3 to the Pedagogical Pulse."
+methodology_text = "**Methodology:** I track my time using 'Student-Periods'. Think of each math lesson as having a baseline potential of 23 students.\n\nInstead of counting a whole lesson as lost when students are pulled out, I track 'Partial Periods Lost'. For example, if 16 students miss a class, I count that as 0.7 of a period lost. The 7 students who remained in class contribute the remaining 0.3 to the teaching metrics. This is how I end up with a decimal number for the Periods Taught and Periods Lost. I think this is a more robust way of tracking my Maths Teaching & Learning Time"
 st.info(methodology_text)
 
 current_term_label = "this term"
@@ -653,8 +653,8 @@ if "Term" in df.columns:
 # ── KPI Calculations ────────────────────────────────────────
 total_periods_raw = len(df)
 
-learning_core_weight = df[df["Category"] == "Learning Core"]["Attendance Weight"].sum()
-overhead_weight = df[df["Category"] == "Curriculum Overhead"]["Attendance Weight"].sum()
+learning_core_weight = df[df["Category"] == "Periods Taught"]["Attendance Weight"].sum()
+overhead_weight = df[df["Category"] == "Periods with Maths Assessment"]["Attendance Weight"].sum()
 leakage_weight = df["Leakage Value"].sum()
 
 actual_periods_taught = learning_core_weight + overhead_weight
@@ -678,7 +678,7 @@ with tab1:
         with kpi_r1_1:
             st.markdown(f'''
             <div class="kpi-card green">
-                <div class="kpi-label">Total Student-Periods</div>
+                <div class="kpi-label">Total Scheduled Periods</div>
                 <div class="kpi-value">{total_weight:.1f}</div>
                 <div class="kpi-sub">Scheduled capacity {current_term_label}</div>
             </div>
@@ -689,7 +689,7 @@ with tab1:
             <div class="kpi-card yellow">
                 <div class="kpi-label">Actual Student-Periods Taught</div>
                 <div class="kpi-value">{actual_periods_taught:.1f}</div>
-                <div class="kpi-sub">Core + Overhead (excluding leakage)</div>
+                <div class="kpi-sub">Periods Taught + Periods with Maths Assessment</div>
             </div>
             ''', unsafe_allow_html=True)
             
@@ -698,7 +698,7 @@ with tab1:
         with kpi_r2_1:
             st.markdown(f'''
             <div class="kpi-card red">
-                <div class="kpi-label">Instructional Leakage</div>
+                <div class="kpi-label">Periods Lost</div>
                 <div class="kpi-value">{leakage_weight:.1f}</div>
                 <div class="kpi-sub">{leakage_pct:.1f}% time lost</div>
             </div>
@@ -707,14 +707,14 @@ with tab1:
         with kpi_r2_2:
             st.markdown(f'''
             <div class="kpi-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,165,0,0.3); border-radius: 16px; padding: 1.5rem 1.25rem; text-align: center;">
-                <div class="kpi-label" style="color: #FFA500;">Maths Assessment</div>
+                <div class="kpi-label" style="color: #FFA500;">Periods with Maths Assessment</div>
                 <div class="kpi-value" style="color: #ffffff;">{overhead_weight:.1f}</div>
                 <div class="kpi-sub">Periods scheduled as assessments</div>
             </div>
             ''', unsafe_allow_html=True)
 
     with right_col:
-        donut_labels = ["Learning Core", "Curriculum Overhead", "Instructional Leakage"]
+        donut_labels = ["Periods Taught", "Periods with Maths Assessment", "Periods Lost"]
         donut_values = [learning_core_weight, overhead_weight, leakage_weight]
         donut_colors = ["#00d68f", "#ffd32a", "#ff4757"]
 
@@ -757,16 +757,16 @@ with tab1:
     st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
     st.markdown('''
     <div class="chart-title">Period Allocation by Week</div>
-    <div class="chart-subtitle">Volume of Learning Core vs. Curriculum Overhead vs. Instructional Leakage.</div>
+    <div class="chart-subtitle">Volume of Periods Taught vs. Periods with Maths Assessment vs. Periods Lost.</div>
     ''', unsafe_allow_html=True)
 
     week_order = sorted(df["Week"].unique(), key=lambda w: int(str(w).replace("W", "")) if str(w).startswith("W") else 999)
     def get_category_weight(row):
-        return row["Leakage Value"] if row["Category"] == "Instructional Leakage" else row["Attendance Weight"]
+        return row["Leakage Value"] if row["Category"] == "Periods Lost" else row["Attendance Weight"]
     df["Plot Weight"] = df.apply(get_category_weight, axis=1)
     chart_df = df.groupby(["Week", "Category"])["Plot Weight"].sum().reset_index(name="Count")
-    category_order = ["Learning Core", "Curriculum Overhead", "Instructional Leakage"]
-    color_map = {"Learning Core": "#00d68f", "Curriculum Overhead": "#ffd32a", "Instructional Leakage": "#ff4757"}
+    category_order = ["Periods Taught", "Periods with Maths Assessment", "Periods Lost"]
+    color_map = {"Periods Taught": "#00d68f", "Periods with Maths Assessment": "#ffd32a", "Periods Lost": "#ff4757"}
     
     fig = px.bar(chart_df, x="Week", y="Count", color="Category", 
                  category_orders={"Week": week_order, "Category": category_order},
@@ -790,11 +790,11 @@ with tab1:
     # ── Operational Insights Table
     st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
     st.markdown('<div class="chart-title">🔎 Operational Deep Dive</div>', unsafe_allow_html=True)
-    st.markdown('<div class="chart-subtitle">Explore Curriculum Overhead, Instructional Leakage, and Partial Leakage periods.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="chart-subtitle">Explore Periods with Maths Assessment, Periods Lost, and Partial Periods Lost periods.</div>', unsafe_allow_html=True)
 
     op_table_df = df.copy()
-    is_partial = (op_table_df["Students Present"] < 23) & (op_table_df["Students Present"] > 0) & (op_table_df["Category"] != "Instructional Leakage")
-    op_table_df.loc[is_partial, "Category"] = "Partial Leakage"
+    is_partial = (op_table_df["Students Present"] < 23) & (op_table_df["Students Present"] > 0) & (op_table_df["Category"] != "Periods Lost")
+    op_table_df.loc[is_partial, "Category"] = "Partial Periods Lost"
 
     op_df = op_table_df.copy()
     
@@ -804,20 +804,20 @@ with tab1:
         selected_op_week = st.selectbox("Filter Week", options=["All Weeks"] + week_order, index=0, key="op_week")
         
         cat_options = [
-            "Instructional & Partial Leakage",
+            "Periods Lost & Partial Periods Lost",
             "All Categories",
-            "Learning Core",
-            "Curriculum Overhead",
-            "Instructional Leakage",
-            "Partial Leakage"
+            "Periods Taught",
+            "Periods with Maths Assessment",
+            "Periods Lost",
+            "Partial Periods Lost"
         ]
         selected_op_cat = st.selectbox("Filter Category", options=cat_options, index=0, key="op_cat")
         
         if selected_op_week != "All Weeks":
             op_df = op_df[op_df["Week"] == selected_op_week]
             
-        if selected_op_cat == "Instructional & Partial Leakage":
-            op_df = op_df[op_df["Category"].isin(["Instructional Leakage", "Partial Leakage"])]
+        if selected_op_cat == "Periods Lost & Partial Periods Lost":
+            op_df = op_df[op_df["Category"].isin(["Periods Lost", "Partial Periods Lost"])]
         elif selected_op_cat != "All Categories":
             op_df = op_df[op_df["Category"] == selected_op_cat]
             
@@ -829,19 +829,27 @@ with tab1:
         ''', unsafe_allow_html=True)
 
     with op_right:
-        cols_to_show_op = ["Week", "Date (DD:MM)", "Category", "Sub-Category", "Description"]
+        cols_to_show_op = ["Week", "Date (DD:MM)", "Category", "Sub-Category", "Description", "Students Present"]
             
         display_op_df = op_df[[c for c in cols_to_show_op if c in op_df.columns]].copy()
+        
+        # Only show Students Present for Partial Periods Lost records
+        if "Students Present" in display_op_df.columns and "Category" in display_op_df.columns:
+            display_op_df["Students Present"] = display_op_df.apply(
+                lambda r: str(int(r["Students Present"])) if r["Category"] == "Partial Periods Lost" else "", 
+                axis=1
+            )
+            
         display_op_df = display_op_df.rename(columns={"Date (DD:MM)": "Date"})
         display_op_df = display_op_df.loc[:, ~display_op_df.columns.duplicated()]
         display_op_df = display_op_df.reset_index(drop=True)
 
         def highlight_op_category(val):
             colors = {
-                "Learning Core": "color: #00d68f; font-weight: 600;",
-                "Instructional Leakage": "color: #ff4757; font-weight: 600;", 
-                "Curriculum Overhead": "color: #ffd32a; font-weight: 600;",
-                "Partial Leakage": "color: #ff7f50; font-weight: 600;"
+                "Periods Taught": "color: #00d68f; font-weight: 600;",
+                "Periods Lost": "color: #ff4757; font-weight: 600;", 
+                "Periods with Maths Assessment": "color: #ffd32a; font-weight: 600;",
+                "Partial Periods Lost": "color: #ff7f50; font-weight: 600;"
             }
             return colors.get(val, "")
 
@@ -852,16 +860,28 @@ with tab1:
 
     # ── Leakage Analysis (Disruption Reasons)
     st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
-    st.markdown('<div class="chart-title">📉 Partial Leakage Drivers</div>', unsafe_allow_html=True)
-    st.markdown('<div class="chart-subtitle">Most frequent disruption reasons when attendance is below 23 students.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="chart-title">📉 Partial Periods Lost Drivers</div>', unsafe_allow_html=True)
+    st.markdown('<div class="chart-subtitle">Most frequent disruption reasons when attendance is close to half or well below half of the class</div>', unsafe_allow_html=True)
 
     disruption_df = df[df["Disruption Reason"] != ""]
     if len(disruption_df) > 0:
-        reason_counts = disruption_df["Disruption Reason"].value_counts().reset_index()
-        reason_counts.columns = ["Disruption Reason", "Frequency"]
-        st.dataframe(reason_counts, use_container_width=True, hide_index=True)
+        # Aggregate by reason to show frequency and average students present
+        reason_summary = disruption_df.groupby("Disruption Reason").agg(
+            Frequency=("Disruption Reason", "count"),
+            Avg_Students=("Students Present", "mean")
+        ).reset_index()
+        
+        # Rename for cleaner display
+        reason_summary = reason_summary.rename(columns={
+            "Avg_Students": "Number of Students Present in Math Class"
+        })
+        
+        # Sort by frequency descending
+        reason_summary = reason_summary.sort_values("Frequency", ascending=False)
+        
+        st.dataframe(reason_summary, use_container_width=True, hide_index=True)
     else:
-        st.info("No partial leakage events recorded.")
+        st.info("No partial periods lost events recorded.")
 
 with tab2:
     st.markdown('<div class="chart-title" style="margin-bottom:1rem;">Pedagogical Pulse</div>', unsafe_allow_html=True)
@@ -869,7 +889,7 @@ with tab2:
     week_options = ["All Weeks"] + week_order
     selected_pulse_week = st.selectbox("Filter Week", options=week_options, index=0, key="pulse_week")
     
-    pulse_df = df[df["Category"] == "Learning Core"].copy()
+    pulse_df = df[df["Category"] == "Periods Taught"].copy()
     if selected_pulse_week != "All Weeks":
         pulse_df = pulse_df[pulse_df["Week"] == selected_pulse_week]
         
@@ -903,7 +923,7 @@ with tab2:
     st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
     st.markdown('''
     <div class="chart-title">Inquiry vs. Explicit Instruction</div>
-    <div class="chart-subtitle">Direct comparison within the Learning Core.</div>
+    <div class="chart-subtitle">Direct comparison within the Periods Taught.</div>
     ''', unsafe_allow_html=True)
 
     pulse_fig = go.Figure(data=[
@@ -924,19 +944,19 @@ with tab2:
 
 with tab3:
     st.markdown('<div class="chart-title" style="margin-bottom:1rem;">🔎 Instructional Assets (Deep Dive)</div>', unsafe_allow_html=True)
-    st.markdown('<div class="chart-subtitle">Explore individual periods (excludes Instructional Leakage)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="chart-subtitle">Explore individual periods (excludes Periods Lost)</div>', unsafe_allow_html=True)
 
-    asset_df = df[df["Category"].isin(["Learning Core", "Curriculum Overhead"])].copy()
+    asset_df = df[df["Category"].isin(["Periods Taught", "Periods with Maths Assessment"])].copy()
     
     dive_left, dive_right = st.columns([1, 3], gap="large")
     
     with dive_left:
         selected_asset_week = st.selectbox("Filter by Week", options=["All Weeks"] + week_order, index=0, key="asset_week")
-        selected_asset_cat = st.selectbox("Filter by Category", options=["Learning Core & Curriculum Overhead", "Learning Core", "Curriculum Overhead"], index=0, key="asset_cat")
+        selected_asset_cat = st.selectbox("Filter by Category", options=["Periods Taught & Periods with Maths Assessment", "Periods Taught", "Periods with Maths Assessment"], index=0, key="asset_cat")
         
         if selected_asset_week != "All Weeks":
             asset_df = asset_df[asset_df["Week"] == selected_asset_week]
-        if selected_asset_cat != "Learning Core & Curriculum Overhead":
+        if selected_asset_cat != "Periods Taught & Periods with Maths Assessment":
             asset_df = asset_df[asset_df["Category"] == selected_asset_cat]
             
         st.markdown(f'''
@@ -964,9 +984,9 @@ with tab3:
             if "Category" in row.index:
                 cat_idx = row.index.get_loc("Category")
                 cat_val = row["Category"]
-                if cat_val == "Learning Core":
+                if cat_val == "Periods Taught":
                     styles[cat_idx] += "color: #00d68f; font-weight: 600;"
-                elif cat_val == "Curriculum Overhead":
+                elif cat_val == "Periods with Maths Assessment":
                     styles[cat_idx] += "color: #ffd32a; font-weight: 600;"
             
             has_disruption = False
