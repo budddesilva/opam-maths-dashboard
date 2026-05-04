@@ -435,8 +435,8 @@ def load_data():
         if isinstance(w_series, pd.DataFrame): w_series = w_series.iloc[:, 0]
         term1 = term1[w_series.map(str).str.strip() != ""]
 
-    # We use "Term" (if exists), "Week", "Date (DD:MM)", "Sub-Category" as join keys for accuracy
-    term1_subset_cols = ["Term", "Week", "Date (DD:MM)", "Sub-Category", "Resource", "Resource_Link", "Disruption Reason"]
+    # We use "Term" (if exists), "Week", "Date (DD:MM)", "Period", "Sub-Category" as join keys for accuracy
+    term1_subset_cols = ["Term", "Week", "Date (DD:MM)", "Period", "Sub-Category", "Resource", "Resource_Link", "Disruption Reason"]
     
     # Filter to existing columns
     term1_subset_cols = [c for c in term1_subset_cols if c in term1.columns]
@@ -447,6 +447,16 @@ def load_data():
     join_keys = ["Week", "Date (DD:MM)", "Sub-Category"]
     if "Term" in term1.columns and "Term" in tracking.columns:
         join_keys.insert(0, "Term")
+
+    if "Period" in term1.columns and "Period" in tracking.columns:
+        join_keys.insert(1 if "Term" in join_keys else 0, "Period")
+
+    # Clean join keys in both dataframes to ensure blank cells match blank cells
+    for col in join_keys:
+        if col in tracking.columns:
+            tracking[col] = tracking[col].fillna("").astype(str).str.strip().replace("nan", "")
+        if col in term1_subset.columns:
+            term1_subset[col] = term1_subset[col].fillna("").astype(str).str.strip().replace("nan", "")
 
     if all(c in term1_subset.columns for c in join_keys):
         term1_subset = term1_subset.drop_duplicates(subset=join_keys)
@@ -491,6 +501,8 @@ def load_data():
     str_cols = ["Term", "Sub-Category", "Lesson Link", "Description", "Explicit or Inquiry"]
     if "Explicit or Inquiry" in df.columns:
         str_cols.append("Explicit or Inquiry")
+    if "Period" in df.columns:
+        str_cols.append("Period")
 
     for col in str_cols:
         if col in df.columns:
@@ -503,6 +515,21 @@ def load_data():
     # Ensure Period Taught is numeric
     if "Period Taught" in df.columns:
         df["Period Taught"] = pd.to_numeric(df["Period Taught"], errors="coerce").fillna(0).astype(int)
+
+    # Process Period Duration Mapping
+    def get_period_minutes(period_val):
+        p = str(period_val).strip()
+        if p == '1': return 60
+        elif p == '2': return 60
+        elif p == '3': return 50
+        elif p == '4': return 45
+        elif p == '5': return 50
+        elif p == '6': return 45
+        else: return 60  # Default if unknown or blank
+
+    if "Period" not in df.columns:
+        df["Period"] = ""
+    df["Period Duration (Mins)"] = df["Period"].apply(get_period_minutes)
 
     # Calculate Attendance Weight Base
     if "Students Present" in df.columns:
@@ -663,6 +690,16 @@ actual_periods_taught = learning_core_weight + overhead_weight
 total_weight = learning_core_weight + overhead_weight + leakage_weight
 leakage_pct = (leakage_weight / total_weight * 100) if total_weight > 0 else 0
 
+# Time Metrics
+learning_df = df[df["Category"].isin(["Periods Taught", "Periods with Maths Assessment"])]
+total_learning_mins = learning_df["Period Duration (Mins)"].sum()
+learning_hours = int(total_learning_mins // 60)
+learning_remaining_mins = int(total_learning_mins % 60)
+
+total_lost_mins = (df["Leakage Value"] * df["Period Duration (Mins)"]).sum()
+lost_hours = int(total_lost_mins // 60)
+lost_remaining_mins = int(total_lost_mins % 60)
+
 # ── Setup Tabs ────────────────────────────────────────────────
 tab1, tab2, tab3 = st.tabs(["📊 Operational Metrics", "💡 Pedagogical Pulse", "📁 Instructional Assets"])
 
@@ -713,6 +750,26 @@ with tab1:
             </div>
             ''', unsafe_allow_html=True)
 
+        kpi_r3_1, kpi_r3_2 = st.columns(2, gap="medium")
+        
+        with kpi_r3_1:
+            st.markdown(f'''
+            <div class="kpi-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(0,214,143,0.3); border-radius: 16px; padding: 1.5rem 1.25rem; text-align: center;">
+                <div class="kpi-label" style="color: #00d68f;">Total Maths Learning Time</div>
+                <div class="kpi-value" style="color: #ffffff; font-size: 2.2rem;">{learning_hours}h {learning_remaining_mins}m</div>
+                <div class="kpi-sub">time taught, including maths assessment</div>
+            </div>
+            ''', unsafe_allow_html=True)
+
+        with kpi_r3_2:
+            st.markdown(f'''
+            <div class="kpi-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,71,87,0.3); border-radius: 16px; padding: 1.5rem 1.25rem; text-align: center;">
+                <div class="kpi-label" style="color: #ff4757;">Total Time Lost</div>
+                <div class="kpi-value" style="color: #ffffff; font-size: 2.2rem;">{lost_hours}h {lost_remaining_mins}m</div>
+                <div class="kpi-sub">due to various reasons</div>
+            </div>
+            ''', unsafe_allow_html=True)
+
     with right_col:
         donut_labels = ["Periods Taught", "Periods with Maths Assessment", "Periods Lost"]
         donut_values = [learning_core_weight, overhead_weight, leakage_weight]
@@ -760,18 +817,34 @@ with tab1:
     <div class="chart-subtitle">Volume of Periods Taught vs. Periods with Maths Assessment vs. Periods Lost.</div>
     ''', unsafe_allow_html=True)
 
-    week_order = sorted(df["Week"].unique(), key=lambda w: int(str(w).replace("W", "")) if str(w).startswith("W") else 999)
+    if "Term" in df.columns and selected_global_term == "All Year":
+        df["Term_Week"] = df["Term"].astype(str).str.strip() + " - " + df["Week"].astype(str).str.strip()
+        x_col = "Term_Week"
+        def tw_sort_key(tw):
+            import re
+            nums = re.findall(r'\d+', tw)
+            return [int(n) for n in nums] if nums else [999]
+        x_order = sorted(df["Term_Week"].unique(), key=tw_sort_key)
+        
+        filter_col = "Term_Week"
+        week_order = x_order
+    else:
+        x_col = "Week"
+        filter_col = "Week"
+        week_order = sorted(df["Week"].unique(), key=lambda w: int(str(w).replace("W", "")) if str(w).startswith("W") else 999)
+        x_order = week_order
+
     def get_category_weight(row):
         return row["Leakage Value"] if row["Category"] == "Periods Lost" else row["Attendance Weight"]
     df["Plot Weight"] = df.apply(get_category_weight, axis=1)
-    chart_df = df.groupby(["Week", "Category"])["Plot Weight"].sum().reset_index(name="Count")
+    chart_df = df.groupby([x_col, "Category"])["Plot Weight"].sum().reset_index(name="Count")
     category_order = ["Periods Taught", "Periods with Maths Assessment", "Periods Lost"]
     color_map = {"Periods Taught": "#00d68f", "Periods with Maths Assessment": "#ffd32a", "Periods Lost": "#ff4757"}
     
-    fig = px.bar(chart_df, x="Week", y="Count", color="Category", 
-                 category_orders={"Week": week_order, "Category": category_order},
+    fig = px.bar(chart_df, x=x_col, y="Count", color="Category", 
+                 category_orders={x_col: x_order, "Category": category_order},
                  color_discrete_map=color_map, barmode="stack", 
-                 labels={"Count": "Periods", "Week": "Week"})
+                 labels={"Count": "Periods", x_col: "Timeline" if x_col == "Term_Week" else "Week"})
                  
     # Update layout to match existing style
     fig.update_layout(
@@ -801,7 +874,7 @@ with tab1:
     op_left, op_right = st.columns([1, 3], gap="large")
     
     with op_left:
-        selected_op_week = st.selectbox("Filter Week", options=["All Weeks"] + week_order, index=0, key="op_week")
+        selected_op_week = st.selectbox("Filter by Term/Week" if filter_col == "Term_Week" else "Filter Week", options=["All Weeks"] + week_order, index=0, key="op_week")
         
         cat_options = [
             "Periods Lost & Partial Periods Lost",
@@ -814,7 +887,7 @@ with tab1:
         selected_op_cat = st.selectbox("Filter Category", options=cat_options, index=0, key="op_cat")
         
         if selected_op_week != "All Weeks":
-            op_df = op_df[op_df["Week"] == selected_op_week]
+            op_df = op_df[op_df[filter_col] == selected_op_week]
             
         if selected_op_cat == "Periods Lost & Partial Periods Lost":
             op_df = op_df[op_df["Category"].isin(["Periods Lost", "Partial Periods Lost"])]
@@ -887,11 +960,11 @@ with tab2:
     st.markdown('<div class="chart-title" style="margin-bottom:1rem;">Pedagogical Pulse</div>', unsafe_allow_html=True)
     
     week_options = ["All Weeks"] + week_order
-    selected_pulse_week = st.selectbox("Filter Week", options=week_options, index=0, key="pulse_week")
+    selected_pulse_week = st.selectbox("Filter by Term/Week" if filter_col == "Term_Week" else "Filter Week", options=week_options, index=0, key="pulse_week")
     
     pulse_df = df[df["Category"] == "Periods Taught"].copy()
     if selected_pulse_week != "All Weeks":
-        pulse_df = pulse_df[pulse_df["Week"] == selected_pulse_week]
+        pulse_df = pulse_df[pulse_df[filter_col] == selected_pulse_week]
         
     explicit_weight = pulse_df[pulse_df["Explicit or Inquiry"].str.lower() == "explicit"]["Attendance Weight"].sum()
     inquiry_weight = pulse_df[pulse_df["Explicit or Inquiry"].str.lower() == "inquiry"]["Attendance Weight"].sum()
@@ -951,11 +1024,11 @@ with tab3:
     dive_left, dive_right = st.columns([1, 3], gap="large")
     
     with dive_left:
-        selected_asset_week = st.selectbox("Filter by Week", options=["All Weeks"] + week_order, index=0, key="asset_week")
+        selected_asset_week = st.selectbox("Filter by Term/Week" if filter_col == "Term_Week" else "Filter by Week", options=["All Weeks"] + week_order, index=0, key="asset_week")
         selected_asset_cat = st.selectbox("Filter by Category", options=["Periods Taught & Periods with Maths Assessment", "Periods Taught", "Periods with Maths Assessment"], index=0, key="asset_cat")
         
         if selected_asset_week != "All Weeks":
-            asset_df = asset_df[asset_df["Week"] == selected_asset_week]
+            asset_df = asset_df[asset_df[filter_col] == selected_asset_week]
         if selected_asset_cat != "Periods Taught & Periods with Maths Assessment":
             asset_df = asset_df[asset_df["Category"] == selected_asset_cat]
             
